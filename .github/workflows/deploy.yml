@@ -19,6 +19,40 @@ jobs:
           username: ${{ secrets.AZURE_ARC_SERVER_USER }}
           password: ${{ secrets.AZURE_ARC_SERVER_PASSWORD }}
           script: |
-            cd ~/myapp
-            git pull origin main
+            set -e  # Exit on error
+
+            echo "Checking if myapp exists..."
+            if [ ! -d "~/myapp/.git" ]; then
+              echo "Repository not found. Cloning fresh copy..."
+              rm -rf ~/myapp
+              git clone https://github.com/joshuaombasa/simple-CI-CD-pipeline-for-an-on-prem-Server-managed-via-Azure-Arc..git ~/myapp
+            else
+              echo "Repository found. Pulling latest changes..."
+              cd ~/myapp
+              git pull origin main
+            fi
+
+            echo "Checking if myapp.service exists..."
+            if ! systemctl list-units --full -all | grep -Fq "myapp.service"; then
+              echo "Systemd service not found. Creating service..."
+              cat <<EOF | sudo tee /etc/systemd/system/myapp.service
+            [Unit]
+            Description=Flask App
+            After=network.target
+
+            [Service]
+            User=$USER
+            WorkingDirectory=/home/$USER/myapp
+            ExecStart=/usr/bin/python3 /home/$USER/myapp/app.py
+            Restart=always
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+              sudo systemctl daemon-reload
+              sudo systemctl enable myapp
+            fi
+
+            echo "Restarting myapp service..."
             sudo systemctl restart myapp
+            sudo systemctl status myapp --no-pager
