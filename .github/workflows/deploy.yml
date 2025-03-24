@@ -1,0 +1,24 @@
+name: Deploy to Azure Arc Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: SSH into Azure Arc server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_ARC_SERVER_IP }}
+          username: ${{ secrets.AZURE_ARC_SERVER_USER }}
+          password: ${{ secrets.AZURE_ARC_SERVER_PASSWORD }}
+          script: |
+            cd ~/myapp
+            git pull origin main
+            sudo systemctl restart myapp
